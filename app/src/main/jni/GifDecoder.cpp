@@ -25,8 +25,9 @@ void processStream(ifstream& is) {
     delete []header;
     LSD lsd;
     if(!lsd.eat(is)) return;
+
+    ColorTable gct(1 << (lsd.sizeGTable + 1));
     if(lsd.hasGTable) {
-        ColorTable gct(1 << (lsd.sizeGTable + 1));
         if(!gct.eat(is)) return;
     }
     for(;;) {
@@ -62,6 +63,23 @@ void processStream(ifstream& is) {
                 }
                 LZWDecoder lzw(&lsd, &imgDes);
                 lzw.eat(is);
+
+                uint32_t size = lsd.sWidth * lsd.sHeight;
+                log("size size" , size);
+                uint8_t *pixels = lzw.pixels;
+
+                std::ofstream os("color.txt");
+
+                for (int i=0; i< size; i++) {
+                	int index = pixels[i];
+                	int red = (int)gct.red(index);
+                	int green = (int)gct.green(index); 
+									int blue = (int)gct.blue(index); 
+									cout << "i = " << i << endl;
+                	os << red <<" "<<green<<" "<<blue << " ";
+                }
+                os.close();
+
                 break;              
             }
             default:

@@ -98,7 +98,7 @@ public:
         char blockSize;//11
         is.read(&blockSize, 1);
         if(!is) return false;
-        log("blockSize", (int)blockSize);
+        // log("blockSize", (int)blockSize);
         char* block = new char[blockSize + 1];
         block[blockSize] = 0;
         is.read(block, blockSize);
@@ -228,17 +228,17 @@ public:
                 }
                 char byte;
                 if (!is.read(&byte, 1)) return false;
-                log("read byte", (uint32_t)(unsigned char)byte);
+                // log("read byte", (uint32_t)(unsigned char)byte);
                 datum |= ((uint32_t)(unsigned char) byte) << bits;
                 bits += 8;
                 blockAvailable--;
             }
-            log("before datum", datum);
+            // log("before datum", datum);
             code = datum & codeMask;
             datum >>= codeSize;
             bits -= codeSize;
-            log("datum", datum);
-            log("code", code);
+            // log("datum", datum);
+            // log("code", code);
 
             if (code > available) {
                 //dict doesn't hold this code, something wrong
