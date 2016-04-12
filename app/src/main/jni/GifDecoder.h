@@ -76,6 +76,11 @@ public:
     }
     bool eat(ifstream& is) {
         is.read(colors, tableSize*3);
+        for (int i=0; i<tableSize; i++) {
+        	cout << "i = " << i << "  R = " <<(unsigned int)(unsigned char)colors[i*3] 
+        	<< " G = " <<(unsigned int)(unsigned char)colors[i*3+1] 
+        	<< " B = " << (unsigned int)(unsigned char)colors[i*3+2] << endl;
+        }
         return is;
     }
     char *colors; 
@@ -238,7 +243,9 @@ public:
             datum >>= codeSize;
             bits -= codeSize;
             // log("datum", datum);
-            // log("code", code);
+            log("code", code);
+
+
 
             if (code > available) {
                 //dict doesn't hold this code, something wrong
@@ -289,12 +296,13 @@ public:
             log("pixelsLen", pixelsLen);
             if(pixelsLen + matchLen > nPixels) return false;
             while(code != -1) {
-            	pixels[dicts[code].len - 1] = (uint8_t)dicts[code].value;
+            	// log("insert index",  )
+            	pixels[pixelsLen + dicts[code].len - 1] = (uint8_t)dicts[code].value;
             	code = dicts[code].preIndex;
             	
             }
             pixelsLen += matchLen;
-            pixels += matchLen;
+            //pixels += matchLen;
         }
         return true;
     }
