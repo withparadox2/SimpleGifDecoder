@@ -1,15 +1,33 @@
 package com.withparadox2.simplegifdecoder;
 
+import android.app.Activity;
+import android.graphics.Bitmap;
+import android.os.Environment;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.ImageView;
+import android.widget.Toast;
+import java.io.File;
 
-public class MainActivity extends ActionBarActivity {
+public class MainActivity extends Activity {
 
   @Override protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
+    ImageView imageView = (ImageView) findViewById(R.id.iv_flower);
+    File extStore = Environment.getExternalStorageDirectory();
+    File flowerFile = new File(extStore.getPath(), "flower.gif");
+    if (flowerFile.exists()) {
+      Toast.makeText(this, "lll", Toast.LENGTH_SHORT).show();
+      Bitmap bitmap = (Bitmap) getGifBitmap(flowerFile.getAbsolutePath());
+      imageView.setImageBitmap(bitmap);
+    }
+  }
+
+  static {
+    System.loadLibrary("simplegif");
   }
 
   @Override public boolean onCreateOptionsMenu(Menu menu) {
@@ -31,4 +49,6 @@ public class MainActivity extends ActionBarActivity {
 
     return super.onOptionsItemSelected(item);
   }
+
+  public native static Object getGifBitmap(String path);
 }

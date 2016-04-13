@@ -11,9 +11,23 @@ int main() {
         is.close();
     }
 }
-template <typename T> void log(const char *name, T value) {
-    cout << name << " = " << value << endl;
+GifDecoder* gifResult;
+ColorTable *gct;
+
+GifDecoder* loadGif(const char *file) {
+    gifResult = new GifDecoder;
+    ifstream is(file, ifstream::binary);
+    if (is.is_open()) {
+        is.seekg(0, is.beg);
+        processStream(is);
+        is.close();
+    }
+    return gifResult;
 }
+template <typename T> void log(const char *name, T value) {
+    //cout << name << " = " << value << endl;
+}
+
 void processStream(ifstream& is) {
     char *header = new char[6];
     is.read(header, 6);
@@ -26,10 +40,11 @@ void processStream(ifstream& is) {
     LSD lsd;
     if(!lsd.eat(is)) return;
 
-    ColorTable gct(1 << (lsd.sizeGTable + 1));
+    gct = new ColorTable(1 << (lsd.sizeGTable + 1));
     if(lsd.hasGTable) {
-        if(!gct.eat(is)) return;
+        if(!gct->eat(is)) return;
     }
+
     for(;;) {
         char blockType;
         is.read(&blockType, 1);
@@ -66,24 +81,37 @@ void processStream(ifstream& is) {
 
                 uint32_t size = lsd.sWidth * lsd.sHeight;
                 log("size size" , size);
-                uint8_t *pixels = lzw.pixels;
+                gifResult->pixels = lzw.pixels;
+                gifResult->width = lsd.sWidth;
+                gifResult->height = lsd.sHeight;
+                gifResult->gct = gct;
 
-                std::ofstream os("color.txt");
+                return;
+                //std::ofstream os("color.txt");
+                //
+                //for (int i=0; i< size; i++) {
+                //	int index = pixels[i];
+                //	int red = (int)gct.red(index);
+                //	int green = (int)gct.green(index);
+									//int blue = (int)gct.blue(index);
+									//cout << "i = " << i << endl;
+                //	os << red <<" "<<green<<" "<<blue << " ";
+                //}
+                //os.close();
 
-                for (int i=0; i< size; i++) {
-                	int index = pixels[i];
-                	int red = (int)gct.red(index);
-                	int green = (int)gct.green(index); 
-									int blue = (int)gct.blue(index); 
-									cout << "i = " << i << endl;
-                	os << red <<" "<<green<<" "<<blue << " ";
-                }
-                os.close();
-
-                break;              
+                //break;
             }
             default:
                 return;
         }
+    }
+}
+
+void LSD::resolvePacketFields(char& fileds) {
+    hasGTable = (fileds & (1 << 7)) != 0;
+    log("hasGTable", hasGTable);
+    if(hasGTable) {
+        sizeGTable = fileds & 0x7;
+        log("sizeGTable", (int)sizeGTable);
     }
 }

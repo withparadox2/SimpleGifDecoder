@@ -1,8 +1,16 @@
 #ifndef _GIFDECODER_H_
 #define _GIFDECODER_H_
 #include <vector>
-using std::cout;
-using std::endl;
+#include <fstream>
+#include <fstream>
+#include <android/log.h>
+
+#define  LOG_TAG    "GifDecoder"
+#define  LOGD(...)  __android_log_print(ANDROID_LOG_DEBUG,LOG_TAG,__VA_ARGS__)
+#define  LOGW(...)  __android_log_print(ANDROID_LOG_WARN,LOG_TAG,__VA_ARGS__)
+#define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
+//using std::cout;
+//using std::endl;
 using std::ifstream;
 template <typename T> void log(const char *name, T value);
 void processStream(std::ifstream& is);
@@ -59,14 +67,7 @@ public:
     bool hasGTable;
     unsigned char sizeGTable;
 };
-void LSD::resolvePacketFields(char& fileds) {
-    hasGTable = (fileds & (1 << 7)) != 0;
-    log("hasGTable", hasGTable);
-    if(hasGTable) {
-        sizeGTable = fileds & 0x7;
-        log("sizeGTable", (int)sizeGTable);
-    }
-}
+
 class ColorTable : ByteEater {
 public:
     int tableSize;
@@ -76,11 +77,11 @@ public:
     }
     bool eat(ifstream& is) {
         is.read(colors, tableSize*3);
-        for (int i=0; i<tableSize; i++) {
-        	cout << "i = " << i << "  R = " <<(unsigned int)(unsigned char)colors[i*3] 
-        	<< " G = " <<(unsigned int)(unsigned char)colors[i*3+1] 
-        	<< " B = " << (unsigned int)(unsigned char)colors[i*3+2] << endl;
-        }
+        //for (int i=0; i<tableSize; i++) {
+        //	cout << "i = " << i << "  R = " <<(unsigned int)(unsigned char)colors[i*3]
+        //	<< " G = " <<(unsigned int)(unsigned char)colors[i*3+1]
+        //	<< " B = " << (unsigned int)(unsigned char)colors[i*3+2] << endl;
+        //}
         return is;
     }
     char *colors; 
@@ -181,6 +182,10 @@ struct Dict {
     int len;
     int preIndex;
 };
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 class LZWDecoder : ByteEater {
 public:
     LZWDecoder(LSD *lsd_p, ImageDes* imgDes_p) : lsd(lsd_p), imgDes(imgDes_p){}
@@ -223,7 +228,7 @@ public:
         available++;//stop flag, we need plus one
 
         for (;;) {
-        	cout << "for" << endl;
+        	//cout << "for" << endl;
             while(bits < codeSize) {
                 if(blockAvailable == 0) {
                     if (!readUnsignedChar(is, &blockAvailable)) return false;
@@ -310,9 +315,31 @@ private:
     LSD *lsd;
     ImageDes *imgDes;
 };
+#ifdef __cplusplus
+}
+#endif
 class GifDecoder {
 public:
-    GifDecoder();
-    ~GifDecoder();
+    uint8_t* pixels;
+    int width = -1;
+    int height = -1;
+    ColorTable *gct;
+    uint32_t* getPixels() {
+      int count = width * height;
+      LOGD("ccwidth = %i, height = %i, cout = %i", width, height, count);
+      uint32_t *bitmap = new uint32_t[count];
+      LOGD("create bitmap");
+      for(int i=0; i < count; i++) {
+        int index = pixels[i];
+
+      	unsigned char red = gct->red(index);
+      	unsigned char green =  gct->green(index);
+        unsigned char blue =  gct->blue(index);
+        bitmap[i] = 0xff<<24|blue<<16|green<<8|red;
+      }
+      return bitmap;
+    }
 };
+GifDecoder * loadGif(const char*);
+
 #endif

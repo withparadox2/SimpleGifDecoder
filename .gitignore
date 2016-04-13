@@ -6,3 +6,4 @@
 /build
 /captures
 *.exe
+/obj
