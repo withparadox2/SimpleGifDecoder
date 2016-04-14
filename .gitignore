@@ -7,3 +7,4 @@
 /captures
 *.exe
 /obj
+*.so
