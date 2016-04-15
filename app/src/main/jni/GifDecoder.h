@@ -3,8 +3,8 @@
 #include <vector>
 #include <fstream>
 #include <iostream>
-#include <android/log.h>
 #include "common.h"
+#include <string.h>
 
 
 using std::cout;
@@ -12,7 +12,7 @@ using std::endl;
 using std::ifstream;
 
 template <typename T> void log(const char *name, T value);
-
+bool skipBlock(ifstream& is);
 class ByteEater {
 public:
 	virtual bool eat(std::ifstream& is);
@@ -98,8 +98,10 @@ public:
 
 	uint32_t* getPixels() ;
 	ColorTable* getColorTable();
-private:
 	ColorTable *gct;
+	ColorTable *fuck;
+
+private:
 };
 
 void exportGifToTxt(GifDecoder* result);

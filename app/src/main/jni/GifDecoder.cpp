@@ -1,7 +1,7 @@
 #include "GifDecoder.h"
 
 int main() {
-  const char *file = "flower.gif";
+  const char *file = "bingbang.gif";
   ifstream is(file, ifstream::binary);
   if (is.is_open()) {
     is.seekg(0, is.beg);
@@ -9,15 +9,11 @@ int main() {
     decoder.processStream(is);
     exportGifToTxt(&decoder);
     is.close();
+    log("finish", "decode");
   }
 }
 
-//def class ByteEater
-bool ByteEater::eat(ifstream& is) {}
-
-ByteEater::~ByteEater() {};
-
-bool ByteEater::skip(ifstream& is) {
+bool skipBlock(ifstream& is) {
   char dataSize;
   for (;;) {
     if (!is.read(&dataSize, 1)) {
@@ -29,6 +25,15 @@ bool ByteEater::skip(ifstream& is) {
       return true;
     }
   }
+}
+
+//def class ByteEater
+bool ByteEater::eat(ifstream& is) {}
+
+ByteEater::~ByteEater() {};
+
+bool ByteEater::skip(ifstream& is) {
+  return skipBlock(is);
 }
 
 bool ByteEater::readUnsignedChar(ifstream& is, unsigned char *dest) {
@@ -153,9 +158,12 @@ bool ImageDes::eat(ifstream& is) {
   hasLTable = (packetFields & 1 << 7) != 0;
   interlace = (packetFields & 1 << 6) != 0;
   sizeLTable = packetFields & 0x7;
+  log("leftPos", leftPos);
+  log("topPos", topPos);
   log("iWidth", iWidth);
   log("iHeight", iHeight);
   log("hasLTable", hasLTable);
+  log("interlace", interlace);
   log("sizeLTable", (int)sizeLTable);
   return true;
 }
@@ -211,17 +219,17 @@ bool LZWDecoder::eat(ifstream& is) {
       }
       char byte;
       if (!is.read(&byte, 1)) return false;
-      // log("read byte", (uint32_t)(unsigned char)byte);
       datum |= ((uint32_t)(unsigned char) byte) << bits;
       bits += 8;
       blockAvailable--;
     }
-    // log("before datum", datum);
+
     code = datum & codeMask;
+
+
     datum >>= codeSize;
     bits -= codeSize;
-    // log("datum", datum);
-    log("code", code);
+    //log("code", code);
 
 
 
@@ -261,17 +269,22 @@ bool LZWDecoder::eat(ifstream& is) {
       dicts[available].value = dicts[ptr].value;
       dicts[available].preIndex = preCode;
       dicts[available].len = dicts[preCode].len + 1;
+
       available++;
+
 
       if (available == (1 << codeSize) && codeSize < 12) {
         codeSize++;
+        codeMask = (1 << codeSize) - 1;
+
         dicts.resize(1 << codeSize);
       }
     }
 
+
     preCode = code;
     int matchLen = dicts[code].len;
-    log("pixelsLen", pixelsLen);
+    // log("pixelsLen", pixelsLen);
     if (pixelsLen + matchLen > nPixels) return false;
     while (code != -1) {
       // log("insert index",  )
@@ -291,7 +304,7 @@ GifDecoder::GifDecoder(): gct(NULL), pixels(NULL), width(-1), height(-1) {
 
 GifDecoder::~GifDecoder() {
   if (gct) {
-    delete[] gct;
+    delete gct;
   }
   if (pixels) {
     delete[] pixels;
@@ -309,9 +322,9 @@ void GifDecoder::loadGif(const char *file) {
 
 uint32_t* GifDecoder::getPixels() {
   int count = width * height;
-  LOGD("ccwidth = %i, height = %i, cout = %i", width, height, count);
+  //LOGD("ccwidth = %i, height = %i, cout = %i", width, height, count);
   uint32_t *bitmap = new uint32_t[count];
-  LOGD("create bitmap");
+  // LOGD("create bitmap");
   for (int i = 0; i < count; i++) {
     int index = pixels[i];
 
@@ -322,6 +335,11 @@ uint32_t* GifDecoder::getPixels() {
   }
   return bitmap;
 }
+
+ColorTable* GifDecoder::getColorTable() {
+  return this->gct;
+}
+
 
 void GifDecoder::processStream(ifstream& is) {
   char *header = new char[6];
@@ -344,12 +362,12 @@ void GifDecoder::processStream(ifstream& is) {
     char blockType;
     is.read(&blockType, 1);
     if (!is) return;
-    log("blockType", (int)blockType);
+    log("blockType", (u4)(u1)blockType);
     switch ((unsigned char)blockType) {
     case 0x21:
       char label;
       is.read(&label, 1);
-      log("label", (int)label);
+      log("label", (u4)(u1)label);
       if (!is) return;
       switch ((unsigned char)label) {
       case 0xff: {
@@ -362,6 +380,11 @@ void GifDecoder::processStream(ifstream& is) {
         gExt.eat(is);
         break;
       }
+      case 0xfe:
+      case 0x01:
+      default:
+        skipBlock(is);
+        break;
       }
       break;
     case 0x2c: {
@@ -375,7 +398,6 @@ void GifDecoder::processStream(ifstream& is) {
       lzw.eat(is);
 
       uint32_t size = lsd.sWidth * lsd.sHeight;
-      log("size size" , size);
       this->pixels = lzw.pixels;
       this->width = lsd.sWidth;
       this->height = lsd.sHeight;
@@ -384,6 +406,8 @@ void GifDecoder::processStream(ifstream& is) {
       return;
       //break;
     }
+    case 0x3b: // terminator
+      return;
     default:
       return;
     }
@@ -396,15 +420,16 @@ void exportGifToTxt(GifDecoder* result) {
   if (result == NULL) {
     return;
   }
-  ColorTable *gct =
-    std::ofstream os("color.txt");
-  for (int i = 0; i < size; i++) {
-    int index = pixels[i];
-    int red = (int)gct.red(index);
-    int green = (int)gct.green(index);
-    int blue = (int)gct.blue(index);
-    cout << "i = " << i << endl;
+  ColorTable *gct = result->getColorTable();
+  std::ofstream os("color.txt");
+  u4 size = result->width * result -> height;
+  for (u4 i = 0; i < size; i++) {
+    int index = (result->pixels)[i];
+    int red = (int)gct->red(index);
+    int green = (int)gct->green(index);
+    int blue = (int)gct->blue(index);
     os << red << " " << green << " " << blue << " ";
+
   }
   os.close();
 #endif
