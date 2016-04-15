@@ -3,6 +3,7 @@
 #include <vector>
 #include <fstream>
 #include <iostream>
+#include <cassert>
 #include "common.h"
 #include <string.h>
 
@@ -18,19 +19,19 @@ public:
 	virtual bool eat(std::ifstream& is);
 	virtual ~ByteEater();
 	bool skip(std::ifstream& is);
-	bool readUnsignedChar(ifstream& is, unsigned char *dest);
-	short readShort(char* bytes);
+	bool readu1(ifstream& is, u1 *dest);
+	short convertu2(char* bytes);
 };
 
 class LSD : public ByteEater {
 public:
 	void resolvePacketFields(char& fileds);
 	bool eat(std::ifstream& is);
-	unsigned short sWidth;
-	unsigned short sHeight;
-	unsigned char bgIndex;
+	u2 sWidth;
+	u2 sHeight;
+	u1 bgIndex;
 	bool hasGTable;
-	unsigned char sizeGTable;
+	u1 sizeGTable;
 };
 
 class ColorTable : ByteEater {
@@ -39,9 +40,9 @@ public:
 	ColorTable(int size);
 	bool eat(ifstream& is);
 	char *colors;
-	unsigned char red(int index);
-	unsigned char green(int index) ;
-	unsigned char blue(int index) ;
+	u1 red(int index);
+	u1 green(int index) ;
+	u1 blue(int index) ;
 	~ColorTable();
 };
 
@@ -53,21 +54,21 @@ public:
 class GraphicCtrlExt : ByteEater {
 public:
 	bool eat(ifstream& is) ;
-	uint8_t delay;
+	u1 delay;
 	bool transparency;
-	unsigned char transparencyIndex;
+	u1 transparencyIndex;
 };
 
 class ImageDes : ByteEater {
 public:
 	bool eat(ifstream& is);
-	unsigned short leftPos;
-	unsigned short topPos;
-	unsigned short iWidth;
-	unsigned short iHeight;
+	u2 leftPos;
+	u2 topPos;
+	u2 iWidth;
+	u2 iHeight;
 	bool hasLTable;
 	bool interlace;
-	unsigned char sizeLTable;
+	u1 sizeLTable;
 };
 struct Dict {
 	char value;
@@ -78,7 +79,7 @@ struct Dict {
 class LZWDecoder : ByteEater {
 public:
 	LZWDecoder(LSD *lsd_p, ImageDes* imgDes_p);
-	uint8_t *pixels;
+	u1 *pixels;
 	bool eat(ifstream& is);
 private:
 	LSD *lsd;
@@ -90,13 +91,13 @@ public:
 	GifDecoder();
 	~GifDecoder();
 	void loadGif(const char *file);
-	void processStream(std::ifstream& is);
+	void processStream(ifstream& is);
 
-	uint8_t* pixels;
+	u1* pixels;
 	int width;
 	int height;
 
-	uint32_t* getPixels() ;
+	u4* getPixels() ;
 	ColorTable* getColorTable();
 	ColorTable *gct;
 	ColorTable *fuck;
@@ -104,5 +105,33 @@ public:
 private:
 };
 
+template<typename _Tp>
+class array_ptr {
+private:
+	_Tp *m_pointer;
+public:
+	typedef _Tp element_type;
+	explicit array_ptr(element_type* p = 0): m_pointer(p) {}
+	~array_ptr() {
+		delete m_pointer;
+	}
+	element_type& operator*() const {
+		assert(m_pointer != 0);
+		return *m_pointer;
+	}
+	element_type* operator->() const {
+		assert(m_pointer != 0);
+		return m_pointer;
+	}
+	element_type* get() const {
+		return m_pointer;
+	}
+	element_type* release() {
+		element_type* tmp = m_pointer;
+		m_pointer = 0;
+		return tmp;
+	}
+
+};
 void exportGifToTxt(GifDecoder* result);
 #endif

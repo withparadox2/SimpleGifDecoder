@@ -1,8 +1,9 @@
 #include "GifDecoder.h"
+using std::string;
 
 int main() {
-  const char *file = "bingbang.gif";
-  ifstream is(file, ifstream::binary);
+  string file("bingbang.gif");
+  ifstream is(file.c_str(), ifstream::binary);
   if (is.is_open()) {
     is.seekg(0, is.beg);
     GifDecoder decoder;
@@ -19,11 +20,11 @@ bool skipBlock(ifstream& is) {
     if (!is.read(&dataSize, 1)) {
       return false;
     }
-    if (dataSize > 0) {
-      is.seekg(dataSize, is.cur);
-    } else {
-      return true;
+    u4 pos = (u1)dataSize;
+    if (pos > 0) {
+      is.seekg(pos, is.cur);
     }
+    return true;
   }
 }
 
@@ -36,14 +37,14 @@ bool ByteEater::skip(ifstream& is) {
   return skipBlock(is);
 }
 
-bool ByteEater::readUnsignedChar(ifstream& is, unsigned char *dest) {
+bool ByteEater::readu1(ifstream& is, u1 *dest) {
   char temp;
   is.read(&temp, 1);
   *dest = temp;
   return is;
 }
-short ByteEater::readShort(char* bytes) {
-  return bytes[1] << 8 | (unsigned char)bytes[0];
+short ByteEater::convertu2(char* bytes) {
+  return bytes[1] << 8 | (u1)bytes[0];
 }
 
 //def class LSD
@@ -57,20 +58,18 @@ void LSD::resolvePacketFields(char& fileds) {
 }
 
 bool LSD::eat(std::ifstream& is) {
-  char* dst = new char[7];
+  char *dst = new char[7];
+  array_ptr<char> dstMgr(dst);
   is.read(dst, 7);
-  if (!is) {
-    return false;
-  }
-  sWidth = readShort(dst);
-  sHeight = readShort(dst + 2);
+  if (!is) return false;
+  sWidth = convertu2(dst);
+  sHeight = convertu2(dst + 2);
   log("sWidth", sWidth);
   log("sHeight", sHeight);
   char packetFields = *(dst + 4);
   bgIndex = *(dst + 5);
   log("bgIndex", (int)bgIndex);
   resolvePacketFields(packetFields);
-  delete[] dst;
   return true;
 }
 
@@ -85,13 +84,13 @@ bool ColorTable::eat(ifstream& is) {
   return is;
 }
 
-unsigned char ColorTable::red(int index) {
+u1 ColorTable::red(int index) {
   return colors[3 * index];
 }
-unsigned char ColorTable::green(int index) {
+u1 ColorTable::green(int index) {
   return colors[3 * index + 1];
 }
-unsigned char ColorTable::blue(int index) {
+u1 ColorTable::blue(int index) {
   return colors[3 * index + 2];
 }
 ColorTable::~ColorTable() {
@@ -105,10 +104,10 @@ bool AppExtBlock::eat(ifstream& is) {
   if (!is) return false;
   // log("blockSize", (int)blockSize);
   char* block = new char[blockSize + 1];
+  array_ptr<char> arrayMgr(block);
   block[blockSize] = 0;
   is.read(block, blockSize);
   if (!is) {
-    delete[] block;
     return false;
   }
   if (!strncmp("NETSCAPE2.0", block, blockSize)) {
@@ -117,7 +116,6 @@ bool AppExtBlock::eat(ifstream& is) {
   } else {
     skip(is);
   }
-  delete[] block;
   return true;
 }
 
@@ -127,33 +125,28 @@ bool GraphicCtrlExt::eat(ifstream& is) {
   is.read(&blockSize, 1);
   if (!is) return false;
   char* block = new char[blockSize];
+  array_ptr<char> arrayMgr(block);
+
   is.read(block, blockSize);
-  if (!is) {
-    delete[] block;
-    return false;
-  }
+  if (!is) return false;
   char packetFields = block[0];
   transparency = (packetFields & 1) != 0;
-  delay = readShort(block + 1);
+  delay = convertu2(block + 1);
   transparencyIndex = block[3];
   //todo : handle dispose
-  delete[] block;
   skip(is);
 }
 
 //def class ImageDes
-
 bool ImageDes::eat(ifstream& is) {
   char *data = new char[9];
+  array_ptr<char> arrayMgr(data);
   is.read(data, 9);
-  if (!is) {
-    delete[] data;
-    return false;
-  }
-  leftPos = readShort(data);
-  topPos = readShort(data + 2);
-  iWidth = readShort(data + 4);
-  iHeight = readShort(data + 6);
+  if (!is)  return false;
+  leftPos = convertu2(data);
+  topPos = convertu2(data + 2);
+  iWidth = convertu2(data + 4);
+  iHeight = convertu2(data + 6);
   char packetFields = data[8];
   hasLTable = (packetFields & 1 << 7) != 0;
   interlace = (packetFields & 1 << 6) != 0;
@@ -183,16 +176,16 @@ bool LZWDecoder::eat(ifstream& is) {
 
   log("dataSize", (int)dataSize);
 
-  char codeSize = dataSize + 1;
+  u1 codeSize = dataSize + 1;
   int codeMask = (1 << codeSize) - 1;
   int clearFlag = 1 << dataSize;
   int endFlag = clearFlag + 1;
   int available;
-  unsigned char bits = 0;
-  unsigned char blockAvailable = 0;
-  uint32_t datum = 0;
-  uint32_t code;
-  int32_t preCode = -1;
+  u1 bits = 0;
+  u1 blockAvailable = 0;
+  u4 datum = 0;
+  u4 code;
+  int preCode = -1;
 
   int pixelsLen = 0;
 
@@ -212,7 +205,7 @@ bool LZWDecoder::eat(ifstream& is) {
     //cout << "for" << endl;
     while (bits < codeSize) {
       if (blockAvailable == 0) {
-        if (!readUnsignedChar(is, &blockAvailable)) return false;
+        if (!readu1(is, &blockAvailable)) return false;
         if (blockAvailable == 0) {
           return true;
         }
@@ -320,17 +313,17 @@ void GifDecoder::loadGif(const char *file) {
   }
 }
 
-uint32_t* GifDecoder::getPixels() {
+u4* GifDecoder::getPixels() {
   int count = width * height;
   //LOGD("ccwidth = %i, height = %i, cout = %i", width, height, count);
-  uint32_t *bitmap = new uint32_t[count];
+  u4 *bitmap = new u4[count];
   // LOGD("create bitmap");
   for (int i = 0; i < count; i++) {
     int index = pixels[i];
 
-    unsigned char red = gct->red(index);
-    unsigned char green =  gct->green(index);
-    unsigned char blue =  gct->blue(index);
+    u1 red = gct->red(index);
+    u1 green =  gct->green(index);
+    u1 blue =  gct->blue(index);
     bitmap[i] = 0xff << 24 | blue << 16 | green << 8 | red;
   }
   return bitmap;
@@ -343,13 +336,13 @@ ColorTable* GifDecoder::getColorTable() {
 
 void GifDecoder::processStream(ifstream& is) {
   char *header = new char[6];
+  array_ptr<char> mgr(header);
   is.read(header, 6);
   if (!is) return;
   if (strncmp("GIF89a", header, 6)) {
     std::cerr << "input file is unsupported!";
     return;
   }
-  delete []header;
   LSD lsd;
   if (!lsd.eat(is)) return;
 
@@ -397,7 +390,7 @@ void GifDecoder::processStream(ifstream& is) {
       LZWDecoder lzw(&lsd, &imgDes);
       lzw.eat(is);
 
-      uint32_t size = lsd.sWidth * lsd.sHeight;
+      u4 size = lsd.sWidth * lsd.sHeight;
       this->pixels = lzw.pixels;
       this->width = lsd.sWidth;
       this->height = lsd.sHeight;
