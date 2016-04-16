@@ -2,7 +2,7 @@
 using std::string;
 
 int main() {
-  string file("bingbang.gif");
+  string file("earth.gif");
   ifstream is(file.c_str(), ifstream::binary);
   if (is.is_open()) {
     is.seekg(0, is.beg);
@@ -23,8 +23,9 @@ bool skipBlock(ifstream& is) {
     u4 pos = (u1)dataSize;
     if (pos > 0) {
       is.seekg(pos, is.cur);
+    } else {
+      return true;
     }
-    return true;
   }
 }
 
@@ -131,7 +132,7 @@ bool GraphicCtrlExt::eat(ifstream& is) {
   if (!is) return false;
   char packetFields = block[0];
   transparency = (packetFields & 1) != 0;
-  delay = convertu2(block + 1);
+  delay = convertu2(block + 1) * 10;
   transparencyIndex = block[3];
   //todo : handle dispose
   skip(is);
@@ -288,19 +289,16 @@ bool LZWDecoder::eat(ifstream& is) {
     pixelsLen += matchLen;
     //pixels += matchLen;
   }
-  return true;
+  return skipBlock(is);
 }
 
 //def class GifDecoder
-GifDecoder::GifDecoder(): gct(NULL), pixels(NULL), width(-1), height(-1) {
+GifDecoder::GifDecoder(): gct(NULL), width(-1), height(-1) , frameCount(0) {
 }
 
 GifDecoder::~GifDecoder() {
   if (gct) {
     delete gct;
-  }
-  if (pixels) {
-    delete[] pixels;
   }
 }
 
@@ -313,20 +311,23 @@ void GifDecoder::loadGif(const char *file) {
   }
 }
 
-u4* GifDecoder::getPixels() {
+u4* GifDecoder::getPixels(u2 frameIndex) {
   int count = width * height;
-  //LOGD("ccwidth = %i, height = %i, cout = %i", width, height, count);
+  u1 *pixels = frames[frameIndex % frameCount]->pixels;
+
   u4 *bitmap = new u4[count];
-  // LOGD("create bitmap");
   for (int i = 0; i < count; i++) {
     int index = pixels[i];
-
     u1 red = gct->red(index);
     u1 green =  gct->green(index);
     u1 blue =  gct->blue(index);
     bitmap[i] = 0xff << 24 | blue << 16 | green << 8 | red;
   }
   return bitmap;
+}
+
+int GifDecoder::getFrameDelay(u2 index) {
+  return frames[index % frameCount]->graphExt->delay;
 }
 
 ColorTable* GifDecoder::getColorTable() {
@@ -346,10 +347,17 @@ void GifDecoder::processStream(ifstream& is) {
   LSD lsd;
   if (!lsd.eat(is)) return;
 
+  this->width = lsd.sWidth;
+  this->height = lsd.sHeight;
+
   ColorTable *gct = new ColorTable(1 << (lsd.sizeGTable + 1));
   if (lsd.hasGTable) {
     if (!gct->eat(is)) return;
   }
+
+  this->gct = gct;
+
+  GraphicCtrlExt *gExt = NULL;
 
   for (;;) {
     char blockType;
@@ -369,8 +377,8 @@ void GifDecoder::processStream(ifstream& is) {
         break;
       }
       case 0xf9: {
-        GraphicCtrlExt gExt;
-        gExt.eat(is);
+        gExt = new GraphicCtrlExt;
+        gExt->eat(is);
         break;
       }
       case 0xfe:
@@ -390,14 +398,19 @@ void GifDecoder::processStream(ifstream& is) {
       LZWDecoder lzw(&lsd, &imgDes);
       lzw.eat(is);
 
-      u4 size = lsd.sWidth * lsd.sHeight;
-      this->pixels = lzw.pixels;
-      this->width = lsd.sWidth;
-      this->height = lsd.sHeight;
-      this->gct = gct;
 
-      return;
-      //break;
+      Frame *frame = new Frame;
+
+      if (gExt) {
+        frame->graphExt = gExt;
+        gExt = NULL;
+      }
+      frame->pixels = lzw.pixels;
+      frames.push_back(frame);
+
+      this->frameCount++;
+      log("frameCount", frameCount);
+      break;
     }
     case 0x3b: // terminator
       return;
@@ -407,6 +420,16 @@ void GifDecoder::processStream(ifstream& is) {
   }
 }
 
+Frame::Frame() : graphExt(NULL), pixels(NULL) {}
+
+Frame::~Frame() {
+  if (graphExt) {
+    delete graphExt;
+  }
+  if (pixels) {
+    delete[] pixels;
+  }
+}
 
 void exportGifToTxt(GifDecoder* result) {
 #ifndef GIF_ANDROID
@@ -416,8 +439,11 @@ void exportGifToTxt(GifDecoder* result) {
   ColorTable *gct = result->getColorTable();
   std::ofstream os("color.txt");
   u4 size = result->width * result -> height;
+  log("size", size);
+  u1 *pixels = (result->frames).at(20)->pixels;
   for (u4 i = 0; i < size; i++) {
-    int index = (result->pixels)[i];
+    int index = pixels[i];
+
     int red = (int)gct->red(index);
     int green = (int)gct->green(index);
     int blue = (int)gct->blue(index);

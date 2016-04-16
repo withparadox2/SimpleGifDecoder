@@ -4,11 +4,8 @@
 
 #define JNIREG_CLASS "com/withparadox2/simplegifdecoder/MainActivity"
 
-jobject getGifBitmap(JNIEnv* env, jclass clazz, jstring fileName) {
-  const char* fileNameChars = env->GetStringUTFChars(fileName, 0);
-  GifDecoder *decoder = new GifDecoder();
-  decoder->loadGif(fileNameChars);
-  env->ReleaseStringUTFChars(fileName, fileNameChars);
+jobject getFrame(JNIEnv* env, jclass clazz, jlong handle, jint index) {
+  GifDecoder *decoder =  ((GifDecoder*)handle);
   LOGD("width = %i, height = %i", decoder->width, decoder->height);
   // Creaing Bitmap Config Class
   jclass bmpCfgCls = env->FindClass("android/graphics/Bitmap$Config");
@@ -29,24 +26,41 @@ jobject getGifBitmap(JNIEnv* env, jclass clazz, jstring fileName) {
     return 0;
   }
 
-  //uint32_t *re = new uint32_t[1];
-  //re[0] = 0xff000088;
-  //memcpy(bitmapPixels, re, 4);
-
   if (decoder->width > 0 && decoder->height > 0) {
     int pixelsCount = decoder->width * decoder->height;
-    //LOGD("before get result");
-    // decoder->getPixels();
-    // LOGD("pixels count = %i", pixelsCount);
-    memcpy(bitmapPixels, decoder->getPixels(), pixelsCount * 4);
+    memcpy(bitmapPixels, decoder->getPixels(index), pixelsCount * 4);
   }
   return jBmpObj;
 }
 
+jlong loadGif(JNIEnv* env, jclass clazz, jstring fileName) {
+  const char* fileNameChars = env->GetStringUTFChars(fileName, 0);
+  GifDecoder *decoder = new GifDecoder();
+  decoder->loadGif(fileNameChars);
+  env->ReleaseStringUTFChars(fileName, fileNameChars);
+  return decoder;
+}
+
+jint getFrameCount(JNIEnv* env, jclass clazz, jlong handle) {
+  return ((GifDecoder*)handle)->frameCount;
+}
+
+jint getFrameDelay(JNIEnv* env, jclass clazz, jlong handle, jint index) {
+  return ((GifDecoder*)handle)->getFrameDelay(index);
+}
 
 static JNINativeMethod gMethods[] = {
-  { "getGifBitmap",
-    "(Ljava/lang/String;)Ljava/lang/Object;", (void*) getGifBitmap
+  { "getFrame",
+    "(JI)Ljava/lang/Object;", (void*) getFrame
+  },
+  { "loadGif",
+    "(Ljava/lang/String;)J",(void*)  loadGif
+  },
+  { "getFrameCount",
+    "(J)I", (void*)  getFrameCount
+  },
+  { "getFrameDelay",
+    "(JI)I", (void*)  getFrameDelay
   }
 };
 int registerNativeMethods(JNIEnv* env, const char* className, JNINativeMethod* gMethods, int numOfMethods)

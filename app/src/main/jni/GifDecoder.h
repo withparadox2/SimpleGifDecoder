@@ -86,6 +86,14 @@ private:
   ImageDes *imgDes;
 };
 
+class Frame {
+public:
+	explicit Frame();
+	~Frame();
+	GraphicCtrlExt* graphExt;
+	u1* pixels;
+};
+
 class GifDecoder {
 public:
   GifDecoder();
@@ -93,17 +101,22 @@ public:
   void loadGif(const char *file);
   void processStream(ifstream& is);
 
-  u1* pixels;
+  std::vector<Frame*> frames;
+  u2 frameCount;
+
   int width;
   int height;
 
-  u4* getPixels() ;
+  u4* getPixels(u2 index) ;
   ColorTable* getColorTable();
   ColorTable *gct;
-  ColorTable *fuck;
+
+  int getFrameDelay(u2 index);
 
 private:
 };
+
+
 
 template<typename _Tp>
 class array_ptr {
@@ -133,5 +146,7 @@ public:
   }
 
 };
+
+
 void exportGifToTxt(GifDecoder* result);
 #endif
