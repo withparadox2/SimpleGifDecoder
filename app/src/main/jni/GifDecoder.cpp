@@ -213,7 +213,7 @@ bool LZWDecoder::eat(ifstream& is) {
       }
       char byte;
       if (!is.read(&byte, 1)) return false;
-      datum |= ((uint32_t)(unsigned char) byte) << bits;
+      datum |= ((u4)(u1) byte) << bits;
       bits += 8;
       blockAvailable--;
     }
@@ -282,7 +282,7 @@ bool LZWDecoder::eat(ifstream& is) {
     if (pixelsLen + matchLen > nPixels) return false;
     while (code != -1) {
       // log("insert index",  )
-      pixels[pixelsLen + dicts[code].len - 1] = (uint8_t)dicts[code].value;
+      pixels[pixelsLen + dicts[code].len - 1] = (u1)dicts[code].value;
       code = dicts[code].preIndex;
 
     }
