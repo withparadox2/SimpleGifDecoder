@@ -44,7 +44,8 @@ bool ByteEater::readu1(ifstream& is, u1 *dest) {
   *dest = temp;
   return is;
 }
-short ByteEater::convertu2(char* bytes) {
+
+u2 ByteEater::convertu2(char* bytes) {
   return bytes[1] << 8 | (u1)bytes[0];
 }
 
@@ -370,13 +371,13 @@ void GifDecoder::processStream(ifstream& is) {
     is.read(&blockType, 1);
     if (!is) return;
     log("blockType", (u4)(u1)blockType);
-    switch ((unsigned char)blockType) {
+    switch ((u1)blockType) {
     case 0x21:
       char label;
       is.read(&label, 1);
       log("label", (u4)(u1)label);
       if (!is) return;
-      switch ((unsigned char)label) {
+      switch ((u1)label) {
       case 0xff: {
         AppExtBlock appExt;
         appExt.eat(is);
