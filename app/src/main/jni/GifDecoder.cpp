@@ -313,7 +313,7 @@ void GifDecoder::loadGif(const char *file) {
 
 u4* GifDecoder::getPixels(u2 frameIndex) {
   int count = width * height;
-  u1 *pixels = frames[frameIndex % frameCount]->pixels;
+  u1 *pixels = frames[frameIndex % frameCount].pixels;
 
   u4 *bitmap = new u4[count];
   for (int i = 0; i < count; i++) {
@@ -327,7 +327,7 @@ u4* GifDecoder::getPixels(u2 frameIndex) {
 }
 
 int GifDecoder::getFrameDelay(u2 index) {
-  return frames[index % frameCount]->graphExt->delay;
+  return frames[index % frameCount].graphExt->delay;
 }
 
 ColorTable* GifDecoder::getColorTable() {
@@ -398,18 +398,19 @@ void GifDecoder::processStream(ifstream& is) {
       LZWDecoder lzw(&lsd, &imgDes);
       lzw.eat(is);
 
-
       Frame *frame = new Frame;
+      frame->id = frameCount;
 
       if (gExt) {
         frame->graphExt = gExt;
         gExt = NULL;
       }
       frame->pixels = lzw.pixels;
-      frames.push_back(frame);
+
+      frames.push_back(std::move(*frame));
 
       this->frameCount++;
-      log("frameCount", frameCount);
+      log("frameCount", frames.size());
       break;
     }
     case 0x3b: // terminator
@@ -421,6 +422,19 @@ void GifDecoder::processStream(ifstream& is) {
 }
 
 Frame::Frame() : graphExt(NULL), pixels(NULL) {}
+Frame::Frame(const Frame& copy) {
+  graphExt = copy.graphExt;
+  pixels = copy.pixels;
+  id = copy.id;
+}
+
+Frame::Frame(Frame && frame) noexcept {
+  graphExt = frame.graphExt;
+  pixels = frame.pixels;
+  id = frame.id;
+  frame.graphExt = NULL;
+  frame.pixels = NULL;
+}
 
 Frame::~Frame() {
   if (graphExt) {
@@ -440,7 +454,7 @@ void exportGifToTxt(GifDecoder* result) {
   std::ofstream os("color.txt");
   u4 size = result->width * result -> height;
   log("size", size);
-  u1 *pixels = (result->frames).at(20)->pixels;
+  u1 *pixels = (result->frames).at(20).pixels;
   for (u4 i = 0; i < size; i++) {
     int index = pixels[i];
 

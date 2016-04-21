@@ -2,7 +2,7 @@
 #define _COMMON_H_
 
 #define  LOG_TAG    "GifDecoder"
-#define GIF_ANDROID
+//#define GIF_ANDROID
 
 #ifdef GIF_ANDROID
 	#define  LOGD(...)  __android_log_print(ANDROID_LOG_DEBUG,LOG_TAG,__VA_ARGS__)

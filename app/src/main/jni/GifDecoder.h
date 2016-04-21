@@ -88,10 +88,13 @@ private:
 
 class Frame {
 public:
-	explicit Frame();
+	Frame();
+	Frame(const Frame&);
+	Frame(Frame&&) noexcept;
 	~Frame();
 	GraphicCtrlExt* graphExt;
 	u1* pixels;
+	int id;
 };
 
 class GifDecoder {
@@ -101,7 +104,7 @@ public:
   void loadGif(const char *file);
   void processStream(ifstream& is);
 
-  std::vector<Frame*> frames;
+  std::vector<Frame> frames;
   u2 frameCount;
 
   int width;
