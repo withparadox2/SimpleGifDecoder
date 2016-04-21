@@ -85,13 +85,13 @@ bool ColorTable::eat(ifstream& is) {
   return is;
 }
 
-u1 ColorTable::red(int index) {
+u1 ColorTable::red(int index) const {
   return colors[3 * index];
 }
-u1 ColorTable::green(int index) {
+u1 ColorTable::green(int index) const {
   return colors[3 * index + 1];
 }
-u1 ColorTable::blue(int index) {
+u1 ColorTable::blue(int index) const {
   return colors[3 * index + 2];
 }
 ColorTable::~ColorTable() {
@@ -163,14 +163,26 @@ bool ImageDes::eat(ifstream& is) {
 }
 
 //def class LZWDecoder
+LZWDecoder::~LZWDecoder() {
+  if (!pixels) {
+    delete pixels;
+  }
+}
 
-LZWDecoder::LZWDecoder(LSD *lsd_p, ImageDes* imgDes_p) : lsd(lsd_p), imgDes(imgDes_p) {}
+u1* LZWDecoder::stolenPixels() {
+  u1* temp = pixels;
+  pixels = NULL;
+  return temp;
+}
+
+LZWDecoder::LZWDecoder(LSD& lsd_p, ImageDes& imgDes_p) : lsd(lsd_p), imgDes(imgDes_p) {}
+
 bool LZWDecoder::eat(ifstream& is) {
-  int width = imgDes->iWidth;
-  int height = imgDes->iHeight;
+  int width = imgDes.iWidth;
+  int height = imgDes.iHeight;
   int nPixels = width * height;
 
-  pixels = new uint8_t[nPixels];
+  pixels = new u1[nPixels];
 
   char dataSize;
   if (!is.read(&dataSize, 1)) return false;
@@ -330,11 +342,6 @@ int GifDecoder::getFrameDelay(u2 index) {
   return frames[index % frameCount].graphExt->delay;
 }
 
-ColorTable* GifDecoder::getColorTable() {
-  return this->gct;
-}
-
-
 void GifDecoder::processStream(ifstream& is) {
   char *header = new char[6];
   array_ptr<char> mgr(header);
@@ -350,14 +357,13 @@ void GifDecoder::processStream(ifstream& is) {
   this->width = lsd.sWidth;
   this->height = lsd.sHeight;
 
-  ColorTable *gct = new ColorTable(1 << (lsd.sizeGTable + 1));
+  std::unique_ptr<ColorTable> ctPtr(new ColorTable(1 << (lsd.sizeGTable + 1)));
   if (lsd.hasGTable) {
-    if (!gct->eat(is)) return;
+    if (!ctPtr->eat(is)) return;
   }
+  this->gct = ctPtr.release();
 
-  this->gct = gct;
-
-  GraphicCtrlExt *gExt = NULL;
+  std::unique_ptr<GraphicCtrlExt> gExtPtr;
 
   for (;;) {
     char blockType;
@@ -377,8 +383,8 @@ void GifDecoder::processStream(ifstream& is) {
         break;
       }
       case 0xf9: {
-        gExt = new GraphicCtrlExt;
-        gExt->eat(is);
+        gExtPtr.reset(new GraphicCtrlExt);
+        gExtPtr->eat(is);
         break;
       }
       case 0xfe:
@@ -395,19 +401,14 @@ void GifDecoder::processStream(ifstream& is) {
         ColorTable lct(1 << (imgDes.sizeLTable + 1));
         if (!lct.eat(is)) return;
       }
-      LZWDecoder lzw(&lsd, &imgDes);
+      LZWDecoder lzw(lsd, imgDes);
       lzw.eat(is);
 
-      Frame *frame = new Frame;
-      frame->id = frameCount;
+      Frame tempFrame;
+      tempFrame.graphExt = gExtPtr.release();
+      tempFrame.pixels = lzw.stolenPixels();
 
-      if (gExt) {
-        frame->graphExt = gExt;
-        gExt = NULL;
-      }
-      frame->pixels = lzw.pixels;
-
-      frames.push_back(std::move(*frame));
+      frames.push_back(std::move(tempFrame));
 
       this->frameCount++;
       log("frameCount", frames.size());
@@ -425,13 +426,11 @@ Frame::Frame() : graphExt(NULL), pixels(NULL) {}
 Frame::Frame(const Frame& copy) {
   graphExt = copy.graphExt;
   pixels = copy.pixels;
-  id = copy.id;
 }
 
 Frame::Frame(Frame && frame) noexcept {
   graphExt = frame.graphExt;
   pixels = frame.pixels;
-  id = frame.id;
   frame.graphExt = NULL;
   frame.pixels = NULL;
 }
@@ -450,19 +449,16 @@ void exportGifToTxt(GifDecoder* result) {
   if (result == NULL) {
     return;
   }
-  ColorTable *gct = result->getColorTable();
+  const ColorTable& gct = *(result->gct);
   std::ofstream os("color.txt");
   u4 size = result->width * result -> height;
-  log("size", size);
   u1 *pixels = (result->frames).at(20).pixels;
   for (u4 i = 0; i < size; i++) {
-    int index = pixels[i];
-
-    int red = (int)gct->red(index);
-    int green = (int)gct->green(index);
-    int blue = (int)gct->blue(index);
+    u4 index = pixels[i];
+    u4 red = (u4)gct.red(index);
+    u4 green = (u4)gct.green(index);
+    u4 blue = (u4)gct.blue(index);
     os << red << " " << green << " " << blue << " ";
-
   }
   os.close();
 #endif
