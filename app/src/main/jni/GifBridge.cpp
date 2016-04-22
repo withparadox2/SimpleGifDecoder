@@ -2,7 +2,7 @@
 #include <android/bitmap.h>
 #include "GifDecoder.h"
 
-#define JNIREG_CLASS "com/withparadox2/simplegifdecoder/MainActivity"
+#define JNIREG_CLASS "com/withparadox2/simplegifdecoder/GifDrawable"
 
 jobject getFrame(JNIEnv* env, jclass clazz, jlong handle, jint index) {
   GifDecoder *decoder =  ((GifDecoder*)handle);

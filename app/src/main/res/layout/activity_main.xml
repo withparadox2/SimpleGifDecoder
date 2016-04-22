@@ -8,7 +8,7 @@
     android:paddingBottom="@dimen/activity_vertical_margin"
     tools:context=".MainActivity">
 
-  <ImageView
+  <com.withparadox2.simplegifdecoder.GifImageView
       android:id="@+id/iv_flower"
       android:layout_width="300dp"
       android:layout_height="300dp"/>

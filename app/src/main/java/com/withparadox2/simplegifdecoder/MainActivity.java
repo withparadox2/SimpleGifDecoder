@@ -17,24 +17,27 @@ public class MainActivity extends Activity {
   @Override protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
-    final ImageView imageView = (ImageView) findViewById(R.id.iv_flower);
+
+    final GifImageView imageView = (GifImageView) findViewById(R.id.iv_flower);
     File extStore = Environment.getExternalStorageDirectory();
-    File flowerFile = new File(extStore.getPath(), "earth.gif");
-    if (flowerFile.exists()) {
-      Toast.makeText(this, "lll", Toast.LENGTH_SHORT).show();
-      final long handle = loadGif(flowerFile.getAbsolutePath());
-      final int count = getFrameCount(handle);
-      imageView.postDelayed(new Runnable() {
-        @Override public void run() {
-          imageView.setImageBitmap((Bitmap) getFrame(handle, index));
-          index++;
-          if (index >= count) {
-            index = 0;
-          }
-          imageView.postDelayed(this, getFrameDelay(handle, index));
-        }
-      }, getFrameDelay(handle, index));
-    }
+
+    imageView.setImage(new File(extStore.getPath(), "earth.gif"));
+    //File flowerFile = new File(extStore.getPath(), "earth.gif");
+    //if (flowerFile.exists()) {
+    //  Toast.makeText(this, "lll", Toast.LENGTH_SHORT).show();
+    //  final long handle = loadGif(flowerFile.getAbsolutePath());
+    //  final int count = getFrameCount(handle);
+    //  imageView.postDelayed(new Runnable() {
+    //    @Override public void run() {
+    //      imageView.setImageBitmap((Bitmap) getFrame(handle, index));
+    //      index++;
+    //      if (index >= count) {
+    //        index = 0;
+    //      }
+    //      imageView.postDelayed(this, getFrameDelay(handle, index));
+    //    }
+    //  }, getFrameDelay(handle, index));
+    //}
   }
 
   static {
