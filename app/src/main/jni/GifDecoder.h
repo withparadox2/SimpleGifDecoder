@@ -15,7 +15,6 @@ using std::ifstream;
 
 class DataWrapper;
 template <typename T> void log(const char *name, T value);
-bool skipBlock(DataWrapper& is);
 
 class DataWrapper {
 public:
@@ -23,6 +22,8 @@ public:
   ~DataWrapper();
   bool read(char* data, int length);
   bool seekg (int off, ifstream::seekdir way);
+  bool skipBlock();
+
 private:
   bool checkRange(int pos) {
     return 0 <= pos && pos < dataLen;

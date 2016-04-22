@@ -14,21 +14,7 @@ int main() {
   }
 }
 
-bool skipBlock(DataWrapper& is) {
-  char dataSize;
-  for (;;) {
-    if (!is.read(&dataSize, 1)) {
-      return false;
-    }
-    u4 pos = (u1)dataSize;
-    if (pos > 0) {
-      is.seekg(pos, ifstream::cur);
-    } else {
-      break;
-    }
-  }
-  return true;
-}
+
 
 //def class ByteEater
 bool ByteEater::eat(DataWrapper& is) {}
@@ -36,7 +22,7 @@ bool ByteEater::eat(DataWrapper& is) {}
 ByteEater::~ByteEater() {};
 
 bool ByteEater::skip(DataWrapper& is) {
-  return skipBlock(is);
+  return is.skipBlock();
 }
 
 bool ByteEater::readu1(DataWrapper& is, u1 *dest) {
@@ -92,6 +78,22 @@ bool DataWrapper::seekg (int off, ifstream::seekdir way) {
   } else {
     //todo throw exception
     return false;
+  }
+  return true;
+}
+
+bool DataWrapper::skipBlock() {
+  char dataSize;
+  for (;;) {
+    if (!this->read(&dataSize, 1)) {
+      return false;
+    }
+    u4 pos = (u1)dataSize;
+    if (pos > 0) {
+      this->seekg(pos, ifstream::cur);
+    } else {
+      break;
+    }
   }
   return true;
 }
@@ -348,7 +350,7 @@ bool LZWDecoder::eat(DataWrapper& is) {
     pixelsLen += matchLen;
     //pixels += matchLen;
   }
-  return skipBlock(is);
+  return is.skipBlock();
 }
 
 //def class GifDecoder
@@ -420,7 +422,7 @@ void GifDecoder::processStream(DataWrapper& is) {
       char label;
       if (!is.read(&label, 1)) return;
       log("label", (u4)(u1)label);
-      
+
       switch ((u1)label) {
       case 0xff: {
         AppExtBlock appExt;
@@ -435,7 +437,7 @@ void GifDecoder::processStream(DataWrapper& is) {
       case 0xfe:
       case 0x01:
       default:
-        skipBlock(is);
+        is.skipBlock();
         break;
       }
       break;
