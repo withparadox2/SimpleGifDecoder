@@ -90,4 +90,13 @@ public class GifDrawable extends Drawable {
   public native static int getFrameCount(long handle);
 
   public native static int getFrameDelay(long handle, int index);
+
+  public native static void onFinalize(long handle);
+
+  @Override protected void finalize() throws Throwable {
+    super.finalize();
+    if (handle != 0) {
+      onFinalize(handle);
+    }
+  }
 }
