@@ -5,16 +5,16 @@ int main() {
   string file("earth.gif");
   ifstream is(file.c_str(), ifstream::binary);
   if (is.is_open()) {
-    is.seekg(0, is.beg);
     GifDecoder decoder;
-    decoder.processStream(is);
+    DataWrapper dataWrapper(is);
+    decoder.processStream(dataWrapper);
     exportGifToTxt(&decoder);
     is.close();
     log("finish", "decode");
   }
 }
 
-bool skipBlock(ifstream& is) {
+bool skipBlock(DataWrapper& is) {
   char dataSize;
   for (;;) {
     if (!is.read(&dataSize, 1)) {
@@ -22,31 +22,84 @@ bool skipBlock(ifstream& is) {
     }
     u4 pos = (u1)dataSize;
     if (pos > 0) {
-      is.seekg(pos, is.cur);
+      is.seekg(pos, ifstream::cur);
     } else {
-      return true;
+      break;
     }
   }
+  return true;
 }
 
 //def class ByteEater
-bool ByteEater::eat(ifstream& is) {}
+bool ByteEater::eat(DataWrapper& is) {}
 
 ByteEater::~ByteEater() {};
 
-bool ByteEater::skip(ifstream& is) {
+bool ByteEater::skip(DataWrapper& is) {
   return skipBlock(is);
 }
 
-bool ByteEater::readu1(ifstream& is, u1 *dest) {
+bool ByteEater::readu1(DataWrapper& is, u1 *dest) {
   char temp;
-  is.read(&temp, 1);
+  bool result = is.read(&temp, 1);
   *dest = temp;
-  return is;
+  return result;
 }
 
 u2 ByteEater::convertu2(char* bytes) {
   return bytes[1] << 8 | (u1)bytes[0];
+}
+
+//def DataWrapper
+DataWrapper::DataWrapper(ifstream& is) : curPos(0) {
+  is.seekg(0, is.end);
+  int length = is.tellg();
+  is.seekg(0, is.beg);
+  this->data = new char[length];
+  this->dataLen = length;
+  is.read(this->data, length);
+}
+
+bool DataWrapper::read(char* data, int length) {
+  if (!checkRange(this->curPos + length - 1)) {
+    return false;
+  }
+
+  for (int i = 0; i < length; i++) {
+    data[i] = (this->data)[this->curPos];
+    this->curPos++;
+  }
+
+  return true;
+}
+
+bool DataWrapper::seekg (int off, ifstream::seekdir way) {
+  if (way == ifstream::cur) {
+    if (!checkRange(off + this->curPos)) {
+      return false;
+    }
+    this->curPos = off + this->curPos;
+  } else if (way == ifstream::beg) {
+    if (!checkRange(off)) {
+      return false;
+    }
+    this->curPos = off;
+  } else if (way == ifstream::end) {
+    if (!checkRange(this->dataLen - 1 + off)) {
+      return false;
+    }
+    this->curPos = this->dataLen - 1 + off;
+  } else {
+    //todo throw exception
+    return false;
+  }
+  return true;
+}
+
+DataWrapper::~DataWrapper() {
+  if (!data) {
+    delete[] data;
+  }
 }
 
 //def class LSD
@@ -59,11 +112,10 @@ void LSD::resolvePacketFields(char& fileds) {
   }
 }
 
-bool LSD::eat(std::ifstream& is) {
+bool LSD::eat(DataWrapper& is) {
   char *dst = new char[7];
   array_ptr<char> dstMgr(dst);
-  is.read(dst, 7);
-  if (!is) return false;
+  if (!is.read(dst, 7)) return false;
   sWidth = convertu2(dst);
   sHeight = convertu2(dst + 2);
   log("sWidth", sWidth);
@@ -81,9 +133,8 @@ ColorTable::ColorTable(int size) : tableSize(size) {
   log("table color size", size * 3);
 }
 
-bool ColorTable::eat(ifstream& is) {
-  is.read(colors, tableSize * 3);
-  return is;
+bool ColorTable::eat(DataWrapper& is) {
+  return is.read(colors, tableSize * 3);
 }
 
 u1 ColorTable::red(int index) const {
@@ -100,16 +151,14 @@ ColorTable::~ColorTable() {
 }
 
 //def class AppExtBlock
-bool AppExtBlock::eat(ifstream& is) {
+bool AppExtBlock::eat(DataWrapper& is) {
   char blockSize;//11
-  is.read(&blockSize, 1);
-  if (!is) return false;
+  if (!is.read(&blockSize, 1)) return false;
   // log("blockSize", (int)blockSize);
   char* block = new char[blockSize + 1];
   array_ptr<char> arrayMgr(block);
   block[blockSize] = 0;
-  is.read(block, blockSize);
-  if (!is) {
+  if (!is.read(block, blockSize)) {
     return false;
   }
   if (!strncmp("NETSCAPE2.0", block, blockSize)) {
@@ -122,15 +171,13 @@ bool AppExtBlock::eat(ifstream& is) {
 }
 
 //def class GraphicCtrlExt
-bool GraphicCtrlExt::eat(ifstream& is) {
+bool GraphicCtrlExt::eat(DataWrapper& is) {
   char blockSize;
-  is.read(&blockSize, 1);
-  if (!is) return false;
+  if (!is.read(&blockSize, 1)) return false;
   char* block = new char[blockSize];
   array_ptr<char> arrayMgr(block);
 
-  is.read(block, blockSize);
-  if (!is) return false;
+  if (!is.read(block, blockSize)) return false;
   char packetFields = block[0];
   transparency = (packetFields & 1) != 0;
   delay = convertu2(block + 1) * 10;
@@ -140,11 +187,10 @@ bool GraphicCtrlExt::eat(ifstream& is) {
 }
 
 //def class ImageDes
-bool ImageDes::eat(ifstream& is) {
+bool ImageDes::eat(DataWrapper& is) {
   char *data = new char[9];
   array_ptr<char> arrayMgr(data);
-  is.read(data, 9);
-  if (!is)  return false;
+  if (!is.read(data, 9))  return false;
   leftPos = convertu2(data);
   topPos = convertu2(data + 2);
   iWidth = convertu2(data + 4);
@@ -178,7 +224,7 @@ u1* LZWDecoder::stolenPixels() {
 
 LZWDecoder::LZWDecoder(LSD& lsd_p, ImageDes& imgDes_p) : lsd(lsd_p), imgDes(imgDes_p) {}
 
-bool LZWDecoder::eat(ifstream& is) {
+bool LZWDecoder::eat(DataWrapper& is) {
   int width = imgDes.iWidth;
   int height = imgDes.iHeight;
   int nPixels = width * height;
@@ -318,8 +364,8 @@ GifDecoder::~GifDecoder() {
 void GifDecoder::loadGif(const char *file) {
   ifstream is(file, ifstream::binary);
   if (is.is_open()) {
-    is.seekg(0, is.beg);
-    processStream(is);
+    DataWrapper dataWrapper(is);
+    processStream(dataWrapper);
     is.close();
   }
 }
@@ -343,11 +389,10 @@ int GifDecoder::getFrameDelay(u2 index) {
   return frames[index % frameCount].graphExt->delay;
 }
 
-void GifDecoder::processStream(ifstream& is) {
+void GifDecoder::processStream(DataWrapper& is) {
   char *header = new char[6];
   array_ptr<char> mgr(header);
-  is.read(header, 6);
-  if (!is) return;
+  if (!is.read(header, 6)) return;
   if (strncmp("GIF89a", header, 6)) {
     std::cerr << "input file is unsupported!";
     return;
@@ -368,15 +413,14 @@ void GifDecoder::processStream(ifstream& is) {
 
   for (;;) {
     char blockType;
-    is.read(&blockType, 1);
-    if (!is) return;
+    if (!is.read(&blockType, 1)) return;
     log("blockType", (u4)(u1)blockType);
     switch ((u1)blockType) {
     case 0x21:
       char label;
-      is.read(&label, 1);
+      if (!is.read(&label, 1)) return;
       log("label", (u4)(u1)label);
-      if (!is) return;
+      
       switch ((u1)label) {
       case 0xff: {
         AppExtBlock appExt;

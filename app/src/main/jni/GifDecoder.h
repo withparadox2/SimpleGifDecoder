@@ -13,21 +13,40 @@ using std::cout;
 using std::endl;
 using std::ifstream;
 
+class DataWrapper;
 template <typename T> void log(const char *name, T value);
-bool skipBlock(ifstream& is);
+bool skipBlock(DataWrapper& is);
+
+class DataWrapper {
+public:
+  DataWrapper(ifstream& is);
+  ~DataWrapper();
+  bool read(char* data, int length);
+  bool seekg (int off, ifstream::seekdir way);
+private:
+  bool checkRange(int pos) {
+    return 0 <= pos && pos < dataLen;
+  }
+  char* data;
+  int dataLen;
+  int curPos;
+};
+
+
 class ByteEater {
 public:
-  virtual bool eat(std::ifstream& is);
+  virtual bool eat(DataWrapper& is);
   virtual ~ByteEater();
-  bool skip(std::ifstream& is);
-  bool readu1(ifstream& is, u1 *dest);
+  bool skip(DataWrapper& is);
+  bool readu1(DataWrapper& is, u1 *dest);
   u2 convertu2(char* bytes);
 };
+
 
 class LSD : public ByteEater {
 public:
   void resolvePacketFields(char& fileds);
-  bool eat(std::ifstream& is);
+  bool eat(DataWrapper& is);
   u2 sWidth;
   u2 sHeight;
   u1 bgIndex;
@@ -39,22 +58,22 @@ class ColorTable : ByteEater {
 public:
   int tableSize;
   ColorTable(int size);
-  bool eat(ifstream& is);
+  bool eat(DataWrapper& is);
   char *colors;
-  u1 red(u4 index) const;
-  u1 green(u4 index) const;
-  u1 blue(u4 index) const;
+  u1 red(int index) const;
+  u1 green(int index) const;
+  u1 blue(int index) const;
   ~ColorTable();
 };
 
 class AppExtBlock : ByteEater {
 public:
-  bool eat(ifstream& is);
+  bool eat(DataWrapper& is);
 };
 
 class GraphicCtrlExt : ByteEater {
 public:
-  bool eat(ifstream& is) ;
+  bool eat(DataWrapper& is) ;
   u1 delay;
   bool transparency;
   u1 transparencyIndex;
@@ -62,7 +81,7 @@ public:
 
 class ImageDes : ByteEater {
 public:
-  bool eat(ifstream& is);
+  bool eat(DataWrapper& is);
   u2 leftPos;
   u2 topPos;
   u2 iWidth;
@@ -81,7 +100,7 @@ class LZWDecoder : ByteEater {
 public:
   LZWDecoder(LSD& lsd_p, ImageDes& imgDes_p);
   ~LZWDecoder();
-  bool eat(ifstream& is);
+  bool eat(DataWrapper& is);
   u1* stolenPixels();
 private:
   LSD& lsd;
@@ -104,7 +123,7 @@ public:
   GifDecoder();
   ~GifDecoder();
   void loadGif(const char *file);
-  void processStream(ifstream& is);
+  void processStream(DataWrapper& is);
 
   std::vector<Frame> frames;
   u2 frameCount;
