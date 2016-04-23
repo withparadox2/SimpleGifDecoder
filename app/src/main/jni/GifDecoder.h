@@ -19,6 +19,7 @@ template <typename T> void log(const char *name, T value);
 class DataWrapper {
 public:
   DataWrapper(ifstream& is);
+  DataWrapper(char *dataArray, int length);
   ~DataWrapper();
   bool read(char* data, int length);
   bool seekg (int off, ifstream::seekdir way);
@@ -124,6 +125,7 @@ public:
   GifDecoder();
   ~GifDecoder();
   void loadGif(const char *file);
+  void loadGif(char *data, int length);
   void processStream(DataWrapper& is);
 
   std::vector<Frame> frames;

@@ -19,8 +19,7 @@ public class GifImageView extends ImageView {
     super(context, attrs, defStyleAttr);
   }
 
-  public void setImage(File file) {
-    GifDrawable drawable = new GifDrawable(file);
+  public void setGifDrawable(Drawable drawable) {
     drawable.setCallback(new Drawable.Callback() {
       @Override public void invalidateDrawable(Drawable who) {
         invalidate();

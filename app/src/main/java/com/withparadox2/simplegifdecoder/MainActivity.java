@@ -21,23 +21,9 @@ public class MainActivity extends Activity {
     final GifImageView imageView = (GifImageView) findViewById(R.id.iv_flower);
     File extStore = Environment.getExternalStorageDirectory();
 
-    imageView.setImage(new File(extStore.getPath(), "earth.gif"));
+    //imageView.setImage(new File(extStore.getPath(), "earth.gif"));
+    imageView.setGifDrawable(new GifDrawable(getResources(), R.drawable.giphy));
     //File flowerFile = new File(extStore.getPath(), "earth.gif");
-    //if (flowerFile.exists()) {
-    //  Toast.makeText(this, "lll", Toast.LENGTH_SHORT).show();
-    //  final long handle = loadGif(flowerFile.getAbsolutePath());
-    //  final int count = getFrameCount(handle);
-    //  imageView.postDelayed(new Runnable() {
-    //    @Override public void run() {
-    //      imageView.setImageBitmap((Bitmap) getFrame(handle, index));
-    //      index++;
-    //      if (index >= count) {
-    //        index = 0;
-    //      }
-    //      imageView.postDelayed(this, getFrameDelay(handle, index));
-    //    }
-    //  }, getFrameDelay(handle, index));
-    //}
   }
 
   static {

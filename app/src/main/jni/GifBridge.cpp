@@ -33,6 +33,14 @@ jobject getFrame(JNIEnv* env, jclass clazz, jlong handle, jint index) {
 	return jBmpObj;
 }
 
+jlong decodeGif(JNIEnv* env, jclass clazz, jbyteArray array) {
+	char *data = env->GetByteArrayElements(array, NULL);
+	int length = (int) env->GetArrayLength(array);
+	GifDecoder *decoder = new GifDecoder();
+	decoder->loadGif(data, length);
+	return decoder;
+}
+
 jlong loadGif(JNIEnv* env, jclass clazz, jstring fileName) {
 	const char* fileNameChars = env->GetStringUTFChars(fileName, 0);
 	GifDecoder *decoder = new GifDecoder();
@@ -68,6 +76,9 @@ static JNINativeMethod gMethods[] = {
 	},
 	{	"onFinalize",
 		"(J)V", (void*)  onFinalize
+	},
+	{	"decodeGif",
+		"([B)J", (void*)  decodeGif
 	}
 };
 int registerNativeMethods(JNIEnv* env, const char* className, JNINativeMethod* gMethods, int numOfMethods)

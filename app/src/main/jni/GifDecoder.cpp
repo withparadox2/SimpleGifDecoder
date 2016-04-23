@@ -46,6 +46,8 @@ DataWrapper::DataWrapper(ifstream& is) : curPos(0) {
   is.read(this->data, length);
 }
 
+DataWrapper::DataWrapper(char *dataByte, int length) : curPos(0), data(dataByte), dataLen(length) {}
+
 bool DataWrapper::read(char* data, int length) {
   if (!checkRange(this->curPos + length - 1)) {
     return false;
@@ -370,6 +372,11 @@ void GifDecoder::loadGif(const char *file) {
     processStream(dataWrapper);
     is.close();
   }
+}
+
+void GifDecoder::loadGif(char *data, int length) {
+  DataWrapper dataWrapper(data, length);
+  processStream(dataWrapper);
 }
 
 u4* GifDecoder::getPixels(u2 frameIndex) {

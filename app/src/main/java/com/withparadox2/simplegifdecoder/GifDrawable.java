@@ -1,5 +1,8 @@
 package com.withparadox2.simplegifdecoder;
 
+import android.content.res.AssetFileDescriptor;
+import android.content.res.AssetManager;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
@@ -8,28 +11,53 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import java.io.File;
+import java.io.IOException;
 import java.lang.ref.WeakReference;
 
 public class GifDrawable extends Drawable {
 
   private InvalidateHandler handler;
-  private boolean isAnimate = true;
   private Bitmap bitmap;
   private long handle;
   private int count;
-  private boolean isReady = false;
+  private int index;
 
   public GifDrawable(File file) {
-    handler = new InvalidateHandler(this);
     if (file.exists()) {
       handle = loadGif(file.getAbsolutePath());
-      count = getFrameCount(handle);
-      isReady = true;
-      handler.post(action);
+      startShowGif();
     }
   }
 
-  int index;
+  public GifDrawable(AssetManager manager, String name) {
+    try {
+      loadByFd(manager.openFd(name));
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
+  public GifDrawable(Resources res, int id) {
+    try {
+      loadByFd(res.openRawResourceFd(id));
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
+  private void loadByFd(AssetFileDescriptor descriptor) throws IOException {
+    byte[] bytes =
+        Utils.readByteArray(descriptor.createInputStream(), (int) descriptor.getLength());
+    handle = decodeGif(bytes);
+    startShowGif();
+  }
+
+  private void startShowGif() {
+    handler = new InvalidateHandler(this);
+    count = getFrameCount(handle);
+    handler.post(action);
+  }
+
   Runnable action = new Runnable() {
     @Override public void run() {
       bitmap = (Bitmap) getFrame(handle, index);
@@ -83,6 +111,14 @@ public class GifDrawable extends Drawable {
     }
   }
 
+  private void destroyNativeObj() {
+    if (handle != 0) {
+      onFinalize(handle);
+    }
+  }
+
+  public native static long decodeGif(byte[] data);
+
   public native static long loadGif(String path);
 
   public native static Object getFrame(long handle, int index);
@@ -95,8 +131,6 @@ public class GifDrawable extends Drawable {
 
   @Override protected void finalize() throws Throwable {
     super.finalize();
-    if (handle != 0) {
-      onFinalize(handle);
-    }
+    destroyNativeObj();
   }
 }
