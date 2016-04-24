@@ -4,8 +4,11 @@ import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
+import android.graphics.BitmapShader;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
+import android.graphics.Paint;
+import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
@@ -21,6 +24,9 @@ public class GifDrawable extends Drawable {
   private long handle;
   private int count;
   private int index;
+  private BitmapState bitmapState;
+  private int bitmapWidth = -1;
+  private int bitmapHeight = -1;
 
   public GifDrawable(File file) {
     if (file.exists()) {
@@ -60,7 +66,15 @@ public class GifDrawable extends Drawable {
 
   Runnable action = new Runnable() {
     @Override public void run() {
+      if (bitmap != null) {
+        bitmap.recycle();
+      }
       bitmap = (Bitmap) getFrame(handle, index);
+      bitmapHeight = bitmap.getHeight();
+      bitmapWidth = bitmap.getWidth();
+      confirmBitmapState();
+      bitmapState.mRebuildShader = true;
+
       index++;
       if (index >= count) {
         index = 0;
@@ -69,13 +83,56 @@ public class GifDrawable extends Drawable {
     }
   };
 
-  static {
-    System.loadLibrary("simplegif");
+  @Override public int getIntrinsicWidth() {
+    return bitmapWidth;
+  }
+
+  @Override public int getIntrinsicHeight() {
+    return bitmapHeight;
+  }
+
+  public void setTileModeX(Shader.TileMode mode) {
+    confirmBitmapState();
+    setTileModeXY(mode, bitmapState.mTileModeY);
+  }
+
+  public void setTileModeY(Shader.TileMode mode) {
+    confirmBitmapState();
+    setTileModeXY(bitmapState.mTileModeX, mode);
+  }
+
+  public void setTileModeXY(Shader.TileMode xmode, Shader.TileMode ymode) {
+    confirmBitmapState();
+    final BitmapState state = bitmapState;
+    if (state.mTileModeX != xmode || state.mTileModeY != ymode) {
+      state.mTileModeX = xmode;
+      state.mTileModeY = ymode;
+      state.mRebuildShader = true;
+      invalidateSelf();
+    }
+  }
+
+  private void confirmBitmapState() {
+    if (bitmapState == null) {
+      bitmapState = new BitmapState();
+    }
   }
 
   @Override public void draw(Canvas canvas) {
     if (bitmap != null && !bitmap.isRecycled()) {
-      canvas.drawBitmap(bitmap, 0, 0, null);
+      confirmBitmapState();
+      BitmapState state = bitmapState;
+      if (state.mTileModeY == null && state.mTileModeX == null) {
+        canvas.drawBitmap(bitmap, 0, 0, null);
+      } else {
+        Paint paint = state.mPaint;
+        if (state.mRebuildShader) {
+          paint.setShader(new BitmapShader(bitmap, state.mTileModeX, state.mTileModeY));
+          state.mRebuildShader = false;
+        }
+        canvas.drawRect(getBounds(), paint);
+      }
+
       if (count > 1) {
         handler.removeCallbacks(action);
         handler.postDelayed(action, getFrameDelay(handle, index));
@@ -95,6 +152,26 @@ public class GifDrawable extends Drawable {
     return 0;
   }
 
+  final static class BitmapState extends ConstantState {
+    final Paint mPaint;
+
+    Shader.TileMode mTileModeX = null;
+    Shader.TileMode mTileModeY = null;
+    boolean mRebuildShader;
+
+    BitmapState() {
+      mPaint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG);
+    }
+
+    @Override public Drawable newDrawable() {
+      return new GifDrawable(null);
+    }
+
+    @Override public int getChangingConfigurations() {
+      return 0;//WTF?
+    }
+  }
+
   static class InvalidateHandler extends Handler {
     WeakReference<GifDrawable> drawableRef;
 
@@ -109,6 +186,10 @@ public class GifDrawable extends Drawable {
         drawable.invalidateSelf();
       }
     }
+  }
+
+  static {
+    System.loadLibrary("simplegif");
   }
 
   private void destroyNativeObj() {

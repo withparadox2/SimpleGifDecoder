@@ -4,7 +4,6 @@ import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.widget.ImageView;
-import java.io.File;
 
 public class GifImageView extends ImageView {
   public GifImageView(Context context) {
