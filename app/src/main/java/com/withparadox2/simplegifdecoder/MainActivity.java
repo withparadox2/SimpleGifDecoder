@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.ImageView;
 import java.io.File;
 
 public class MainActivity extends Activity {
@@ -16,13 +17,13 @@ public class MainActivity extends Activity {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
 
-    final GifImageView imageView = (GifImageView) findViewById(R.id.iv_flower);
+    final ImageView imageView = (ImageView) findViewById(R.id.iv_flower);
     File extStore = Environment.getExternalStorageDirectory();
 
     //imageView.setImage(new File(extStore.getPath(), "earth.gif"));
     GifDrawable drawable = new GifDrawable(getResources(), R.drawable.giphy);
     drawable.setTileModeXY(Shader.TileMode.MIRROR, Shader.TileMode.REPEAT);
-    imageView.setGifDrawable(drawable);
+    imageView.setImageDrawable(drawable);
     //File flowerFile = new File(extStore.getPath(), "earth.gif");
   }
 

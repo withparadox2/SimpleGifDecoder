@@ -4,7 +4,7 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-  <com.withparadox2.simplegifdecoder.GifImageView
+  <ImageView
       android:id="@+id/iv_flower"
       android:scaleType="fitXY"
       android:layout_width="match_parent"
