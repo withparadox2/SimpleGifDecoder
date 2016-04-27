@@ -66,17 +66,19 @@ public class GifDrawable extends Drawable {
   private void startShowGif() {
     handler = new InvalidateHandler(this);
     count = getFrameCount(handle);
+    bitmapWidth = getWidth(handle);
+    bitmapHeight = getHeight(handle);
+    Log.d(GifDrawable.class.getSimpleName(),
+        "width = " + bitmapWidth + "   height = " + bitmapHeight);
+    bitmap = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888);
     handler.post(action);
   }
 
   Runnable action = new Runnable() {
     @Override public void run() {
-      if (bitmap != null) {
-        bitmap.recycle();
-      }
-      bitmap = (Bitmap) getFrame(handle, index);
-      bitmapHeight = bitmap.getHeight();
-      bitmapWidth = bitmap.getWidth();
+      Log.d("GifDraw", "runnable draw...");
+      getFrame(handle, index, bitmap);
+
       confirmBitmapState();
       bitmapState.mRebuildShader = true;
 
@@ -207,13 +209,17 @@ public class GifDrawable extends Drawable {
 
   public native static long loadGif(String path);
 
-  public native static Object getFrame(long handle, int index);
+  public native static void getFrame(long handle, int index, Bitmap bitmap);
 
   public native static int getFrameCount(long handle);
 
   public native static int getFrameDelay(long handle, int index);
 
   public native static void onFinalize(long handle);
+
+  public native static int getWidth(long handle);
+
+  public native static int getHeight(long handle);
 
   @Override protected void finalize() throws Throwable {
     super.finalize();

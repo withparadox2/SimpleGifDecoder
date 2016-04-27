@@ -108,8 +108,8 @@ public:
   bool eat(DataWrapper& is, GifDecoder& decoder);
   bool skipFrame(DataWrapper& is, Frame& frame);
   u1* stolenPixels();
-  u1 *pixels;
 private:
+  u1 *pixels;
 };
 
 class Frame {

@@ -11,14 +11,9 @@ int main() {
     DataWrapper *data = new DataWrapper(is);
 
     decoder.dataWrapper = data;
-    clock_t start = clock();
     decoder.processStream(*data);
-    clock_t finish = clock();
-    //LOGD("duration = %f", (double)(finish - start) / CLOCKS_PER_SEC);
-
     exportGifToTxt(&decoder);
     is.close();
-    log("finish", "decode");
   }
 }
 
@@ -375,12 +370,15 @@ bool LZWDecoder::eat(DataWrapper& is, GifDecoder& decoder) {
 }
 
 //def class GifDecoder
-GifDecoder::GifDecoder(): gct(NULL), width(-1), height(-1) , frameCount(0) {
+GifDecoder::GifDecoder(): gct(NULL), width(-1), height(-1) , frameCount(0), dataWrapper(NULL) {
 }
 
 GifDecoder::~GifDecoder() {
   if (gct) {
     delete gct;
+  }
+  if(dataWrapper) {
+    delete dataWrapper;
   }
 }
 
@@ -406,6 +404,10 @@ void GifDecoder::decodeFrame(u2 frameIndex) {
   LZWDecoder lzw;
   lzw.eat(*(this->dataWrapper), *this);
   frame.pixels = lzw.stolenPixels();
+  if (frameIndex == this->frameCount - 1) {
+    delete this->dataWrapper;
+    dataWrapper = NULL;
+  }
 }
 
 u4* GifDecoder::getPixels(u2 frameIndex) {
@@ -491,7 +493,6 @@ void GifDecoder::processStream(DataWrapper& is) {
 
       Frame tempFrame;
       tempFrame.graphExt = gExtPtr.release();
-      // tempFrame.pixels = lzw.stolenPixels();
       tempFrame.dataIndex = is.getCurPos();
       frames.push_back(std::move(tempFrame));
 
