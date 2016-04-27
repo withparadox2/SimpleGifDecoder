@@ -1,13 +1,21 @@
 #include "GifDecoder.h"
+#include <time.h>
 using std::string;
 
 int main() {
   string file("earth.gif");
   ifstream is(file.c_str(), ifstream::binary);
   if (is.is_open()) {
+
     GifDecoder decoder;
-    DataWrapper dataWrapper(is);
-    decoder.processStream(dataWrapper);
+    DataWrapper *data = new DataWrapper(is);
+
+    decoder.dataWrapper = data;
+    clock_t start = clock();
+    decoder.processStream(*data);
+    clock_t finish = clock();
+    //LOGD("duration = %f", (double)(finish - start) / CLOCKS_PER_SEC);
+
     exportGifToTxt(&decoder);
     is.close();
     log("finish", "decode");
@@ -55,7 +63,7 @@ bool DataWrapper::read(char* data, int length) {
 
   for (int i = 0; i < length; i++) {
     data[i] = (this->data)[this->curPos];
-    this->curPos++;
+    this->curPos ++;
   }
 
   return true;
@@ -98,6 +106,15 @@ bool DataWrapper::skipBlock() {
     }
   }
   return true;
+}
+
+//TODO check range
+void DataWrapper::setCurPos(int pos) {
+  this->curPos = pos;
+}
+
+int DataWrapper::getCurPos() {
+  return curPos;
 }
 
 DataWrapper::~DataWrapper() {
@@ -226,14 +243,21 @@ u1* LZWDecoder::stolenPixels() {
   return temp;
 }
 
-LZWDecoder::LZWDecoder(LSD& lsd_p, ImageDes& imgDes_p) : lsd(lsd_p), imgDes(imgDes_p) {}
+bool LZWDecoder::skipFrame(DataWrapper& is, Frame& frame) {
+  is.seekg(1, ifstream::cur);
+  is.skipBlock();
+  frame.dataIndex = is.getCurPos();
+}
 
-bool LZWDecoder::eat(DataWrapper& is) {
-  int width = imgDes.iWidth;
-  int height = imgDes.iHeight;
+bool LZWDecoder::eat(DataWrapper& is, GifDecoder& decoder) {
+  int width = decoder.width;
+  int height = decoder.height;
   int nPixels = width * height;
 
+  log("size pixels", nPixels);
   pixels = new u1[nPixels];
+  log("pixels addrress", *pixels);
+
 
   char dataSize;
   if (!is.read(&dataSize, 1)) return false;
@@ -286,9 +310,6 @@ bool LZWDecoder::eat(DataWrapper& is) {
 
     datum >>= codeSize;
     bits -= codeSize;
-    //log("code", code);
-
-
 
     if (code > available) {
       //dict doesn't hold this code, something wrong
@@ -344,15 +365,13 @@ bool LZWDecoder::eat(DataWrapper& is) {
     // log("pixelsLen", pixelsLen);
     if (pixelsLen + matchLen > nPixels) return false;
     while (code != -1) {
-      // log("insert index",  )
       pixels[pixelsLen + dicts[code].len - 1] = (u1)dicts[code].value;
       code = dicts[code].preIndex;
-
     }
     pixelsLen += matchLen;
     //pixels += matchLen;
   }
-  return is.skipBlock();
+  return false;
 }
 
 //def class GifDecoder
@@ -368,20 +387,34 @@ GifDecoder::~GifDecoder() {
 void GifDecoder::loadGif(const char *file) {
   ifstream is(file, ifstream::binary);
   if (is.is_open()) {
-    DataWrapper dataWrapper(is);
-    processStream(dataWrapper);
+    DataWrapper *data = new DataWrapper(is);
+    this->dataWrapper = data;
+    processStream(*data);
     is.close();
   }
 }
 
 void GifDecoder::loadGif(char *data, int length) {
-  DataWrapper dataWrapper(data, length);
-  processStream(dataWrapper);
+  DataWrapper *dataWrap = new DataWrapper(data, length);
+  this->dataWrapper = dataWrap;
+  processStream(*dataWrap);
+}
+
+void GifDecoder::decodeFrame(u2 frameIndex) {
+  Frame &frame = frames.at(frameIndex);
+  this->dataWrapper->setCurPos(frame.dataIndex);
+  LZWDecoder lzw;
+  lzw.eat(*(this->dataWrapper), *this);
+  frame.pixels = lzw.stolenPixels();
 }
 
 u4* GifDecoder::getPixels(u2 frameIndex) {
   int count = width * height;
-  u1 *pixels = frames[frameIndex % frameCount].pixels;
+  int newIndex = frameIndex % frameCount;
+  if (frames[newIndex].pixels == NULL) {
+    this->decodeFrame(newIndex);
+  }
+  u1 *pixels = frames[newIndex].pixels;
 
   u4 *bitmap = new u4[count];
   for (int i = 0; i < count; i++) {
@@ -455,16 +488,17 @@ void GifDecoder::processStream(DataWrapper& is) {
         ColorTable lct(1 << (imgDes.sizeLTable + 1));
         if (!lct.eat(is)) return;
       }
-      LZWDecoder lzw(lsd, imgDes);
-      lzw.eat(is);
 
       Frame tempFrame;
       tempFrame.graphExt = gExtPtr.release();
-      tempFrame.pixels = lzw.stolenPixels();
-
+      // tempFrame.pixels = lzw.stolenPixels();
+      tempFrame.dataIndex = is.getCurPos();
       frames.push_back(std::move(tempFrame));
 
       this->frameCount++;
+
+      LZWDecoder lzw;
+      lzw.skipFrame(is, tempFrame);
       log("frameCount", frames.size());
       break;
     }
@@ -476,15 +510,17 @@ void GifDecoder::processStream(DataWrapper& is) {
   }
 }
 
-Frame::Frame() : graphExt(NULL), pixels(NULL) {}
+Frame::Frame() : graphExt(NULL), pixels(NULL), dataIndex(0) {}
 Frame::Frame(const Frame& copy) {
   graphExt = copy.graphExt;
   pixels = copy.pixels;
+  dataIndex = copy.dataIndex;
 }
 
 Frame::Frame(Frame && frame) noexcept {
   graphExt = frame.graphExt;
   pixels = frame.pixels;
+  dataIndex = frame.dataIndex;
   frame.graphExt = NULL;
   frame.pixels = NULL;
 }
@@ -506,7 +542,9 @@ void exportGifToTxt(GifDecoder* result) {
   const ColorTable& gct = *(result->gct);
   std::ofstream os("color.txt");
   u4 size = result->width * result -> height;
-  u1 *pixels = (result->frames).at(20).pixels;
+
+  result->decodeFrame(30);
+  u1 *pixels = (result->frames).at(30).pixels;
   for (u4 i = 0; i < size; i++) {
     u4 index = pixels[i];
     u4 red = (u4)gct.red(index);

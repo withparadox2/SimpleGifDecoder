@@ -20,10 +20,10 @@ public class MainActivity extends Activity {
     final ImageView imageView = (ImageView) findViewById(R.id.iv_flower);
     File extStore = Environment.getExternalStorageDirectory();
 
-    //imageView.setImage(new File(extStore.getPath(), "earth.gif"));
-    GifDrawable drawable = new GifDrawable(getResources(), R.drawable.giphy);
-    drawable.setTileModeXY(Shader.TileMode.MIRROR, Shader.TileMode.REPEAT);
-    imageView.setImageDrawable(drawable);
+    imageView.setImageDrawable(new GifDrawable(new File(extStore.getPath(), "earth.gif")));
+    //GifDrawable drawable = new GifDrawable(getResources(), R.drawable.giphy);
+    //drawable.setTileModeXY(Shader.TileMode.MIRROR, Shader.TileMode.REPEAT);
+    //imageView.setImageDrawable(drawable);
     //File flowerFile = new File(extStore.getPath(), "earth.gif");
   }
 

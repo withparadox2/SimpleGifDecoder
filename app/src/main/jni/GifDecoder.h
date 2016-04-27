@@ -14,6 +14,8 @@ using std::endl;
 using std::ifstream;
 
 class DataWrapper;
+class GifDecoder;
+class Frame;
 template <typename T> void log(const char *name, T value);
 
 class DataWrapper {
@@ -24,6 +26,8 @@ public:
   bool read(char* data, int length);
   bool seekg (int off, ifstream::seekdir way);
   bool skipBlock();
+  int getCurPos();
+  void setCurPos(int pos);
 
 private:
   bool checkRange(int pos) {
@@ -100,14 +104,12 @@ struct Dict {
 
 class LZWDecoder : ByteEater {
 public:
-  LZWDecoder(LSD& lsd_p, ImageDes& imgDes_p);
   ~LZWDecoder();
-  bool eat(DataWrapper& is);
+  bool eat(DataWrapper& is, GifDecoder& decoder);
+  bool skipFrame(DataWrapper& is, Frame& frame);
   u1* stolenPixels();
-private:
-  LSD& lsd;
-  ImageDes& imgDes;
   u1 *pixels;
+private:
 };
 
 class Frame {
@@ -118,6 +120,7 @@ public:
   ~Frame();
   GraphicCtrlExt* graphExt;
   u1* pixels;
+  int dataIndex;//index of current frame in data block.
 };
 
 class GifDecoder {
@@ -127,6 +130,7 @@ public:
   void loadGif(const char *file);
   void loadGif(char *data, int length);
   void processStream(DataWrapper& is);
+  void decodeFrame(u2 index);
 
   std::vector<Frame> frames;
   u2 frameCount;
@@ -138,6 +142,7 @@ public:
   ColorTable *gct;
 
   int getFrameDelay(u2 index);
+  DataWrapper* dataWrapper;
 };
 
 

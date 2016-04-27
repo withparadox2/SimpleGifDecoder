@@ -6,7 +6,7 @@
 
 jobject getFrame(JNIEnv* env, jclass clazz, jlong handle, jint index) {
 	GifDecoder *decoder =  ((GifDecoder*)handle);
-	LOGD("width = %i, height = %i", decoder->width, decoder->height);
+	//LOGD("width = %i, height = %i", decoder->width, decoder->height);
 	// Creaing Bitmap Config Class
 	jclass bmpCfgCls = env->FindClass("android/graphics/Bitmap$Config");
 	jmethodID bmpClsValueOfMid = env->GetStaticMethodID(bmpCfgCls, "valueOf", "(Ljava/lang/String;)Landroid/graphics/Bitmap$Config;");
@@ -96,7 +96,7 @@ int registerNativeMethods(JNIEnv* env, const char* className, JNINativeMethod* g
 
 int registerNatives(JNIEnv* env) {
 	if (!registerNativeMethods(env, JNIREG_CLASS, gMethods,
-	                           sizeof(gMethods) / sizeof(gMethods[0])))
+														 sizeof(gMethods) / sizeof(gMethods[0])))
 		return JNI_FALSE;
 
 	return JNI_TRUE;

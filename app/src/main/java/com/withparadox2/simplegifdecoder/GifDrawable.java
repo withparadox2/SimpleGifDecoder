@@ -13,6 +13,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.util.Log;
 import java.io.File;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
@@ -30,7 +31,11 @@ public class GifDrawable extends Drawable {
 
   public GifDrawable(File file) {
     if (file.exists()) {
+      long start = System.currentTimeMillis();
       handle = loadGif(file.getAbsolutePath());
+      long end = System.currentTimeMillis();
+      Log.d("GifDrawable", "===============" + (end - start));
+
       startShowGif();
     }
   }
