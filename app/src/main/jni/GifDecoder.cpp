@@ -227,7 +227,7 @@ bool ImageDes::eat(DataWrapper& is) {
 
 //def class LZWDecoder
 LZWDecoder::~LZWDecoder() {
-  if (!pixels) {
+  if (pixels) {
     delete pixels;
   }
 }
@@ -249,10 +249,7 @@ bool LZWDecoder::eat(DataWrapper& is, GifDecoder& decoder) {
   int height = decoder.height;
   int nPixels = width * height;
 
-  log("size pixels", nPixels);
   pixels = new u1[nPixels];
-  log("pixels addrress", *pixels);
-
 
   char dataSize;
   if (!is.read(&dataSize, 1)) return false;
@@ -285,7 +282,6 @@ bool LZWDecoder::eat(DataWrapper& is, GifDecoder& decoder) {
   available++;//stop flag, we need plus one
 
   for (;;) {
-    //cout << "for" << endl;
     while (bits < codeSize) {
       if (blockAvailable == 0) {
         if (!readu1(is, &blockAvailable)) return false;
@@ -331,7 +327,6 @@ bool LZWDecoder::eat(DataWrapper& is, GifDecoder& decoder) {
     }
 
     if (preCode > -1 && codeSize < 13) {
-      //  log("insert dict =======", 0);
       int ptr = code;
       if (code == available) {
         ptr = preCode;
@@ -357,14 +352,12 @@ bool LZWDecoder::eat(DataWrapper& is, GifDecoder& decoder) {
 
     preCode = code;
     int matchLen = dicts[code].len;
-    // log("pixelsLen", pixelsLen);
     if (pixelsLen + matchLen > nPixels) return false;
     while (code != -1) {
       pixels[pixelsLen + dicts[code].len - 1] = (u1)dicts[code].value;
       code = dicts[code].preIndex;
     }
     pixelsLen += matchLen;
-    //pixels += matchLen;
   }
   return false;
 }

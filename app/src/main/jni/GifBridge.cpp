@@ -10,12 +10,13 @@ void getFrame(JNIEnv* env, jclass clazz, jlong handle, jint index, jobject jBmpO
   void* bitmapPixels;
 
   if (AndroidBitmap_lockPixels(env, jBmpObj, &bitmapPixels) < 0) {
-    return 0;
+    return;
   }
 
   if (decoder->width > 0 && decoder->height > 0) {
     int pixelsCount = decoder->width * decoder->height;
-    memcpy(bitmapPixels, decoder->getPixels(index), pixelsCount * 4);
+    array_ptr<u4> pixels(decoder->getPixels(index));
+    memcpy(bitmapPixels, pixels.get(), pixelsCount * 4);
   }
 
   AndroidBitmap_unlockPixels(env, jBmpObj);
